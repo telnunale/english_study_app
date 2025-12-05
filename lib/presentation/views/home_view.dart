@@ -1,9 +1,10 @@
 ﻿import 'package:flutter/material.dart';
 import 'study_selector_view.dart';
 import 'tenses_view.dart';
-import 'verbs_view.dart';
+import 'dictionary_view.dart';
 import 'exercises_view.dart';
 import 'management_view.dart';
+import 'translator_view.dart';
 
 class HomeView extends StatefulWidget {
   const HomeView({super.key});
@@ -23,15 +24,16 @@ class _HomeViewState extends State<HomeView> {
         setState(() {
           _showManagement = value;
           // Si desactivamos gestión y estábamos en esa pestaña, volver a Estudiar
-          if (!_showManagement && _selectedIndex >= 4) {
+          if (!_showManagement && _selectedIndex >= 5) {
             _selectedIndex = 0;
           }
         });
       },
     ),
     const TensesView(),
-    const VerbsView(),
+    const DictionaryView(),
     const ExercisesView(),
+    const TranslatorView(),
     if (_showManagement) const ManagementView(),
   ];
 
@@ -47,14 +49,19 @@ class _HomeViewState extends State<HomeView> {
       label: 'Tiempos',
     ),
     const NavigationDestination(
-      icon: Icon(Icons.book_outlined),
-      selectedIcon: Icon(Icons.book),
-      label: 'Verbos',
+      icon: Icon(Icons.menu_book_outlined),
+      selectedIcon: Icon(Icons.menu_book),
+      label: 'Diccionario',
     ),
     const NavigationDestination(
       icon: Icon(Icons.quiz_outlined),
       selectedIcon: Icon(Icons.quiz),
       label: 'Ejercicios',
+    ),
+    const NavigationDestination(
+      icon: Icon(Icons.translate_outlined),
+      selectedIcon: Icon(Icons.translate),
+      label: 'Traductor',
     ),
     if (_showManagement)
       const NavigationDestination(

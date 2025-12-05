@@ -2,6 +2,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/exercise.dart';
 import '../models/exercise_stats.dart';
+import '../models/exercise_block.dart';
 
 /// Service for local storage using SharedPreferences
 class StorageService {
@@ -9,6 +10,7 @@ class StorageService {
   static const String _customExercisesKey = 'custom_exercises';
   static const String _exerciseStatsKey = 'exercise_stats';
   static const String _exerciseSessionsKey = 'exercise_sessions';
+  static const String _completedBlocksKey = 'completed_blocks';
 
   SharedPreferences? _prefs;
 
@@ -151,5 +153,54 @@ class StorageService {
     final prefs = _prefs ?? await SharedPreferences.getInstance();
     await prefs.remove(_exerciseStatsKey);
     await prefs.remove(_exerciseSessionsKey);
+  }
+
+  // Completed Blocks
+  Future<Map<String, List<ExerciseBlock>>> getCompletedBlocks() async {
+    final prefs = _prefs ?? await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_completedBlocksKey);
+    if (jsonString == null) return {};
+
+    final Map<String, dynamic> jsonMap = json.decode(jsonString);
+    return jsonMap.map(
+      (key, value) => MapEntry(
+        key,
+        (value as List).map((e) => ExerciseBlock.fromJson(e)).toList(),
+      ),
+    );
+  }
+
+  Future<void> saveBlockCompletion(String tenseKey, ExerciseBlock block) async {
+    final prefs = _prefs ?? await SharedPreferences.getInstance();
+    final blocks = await getCompletedBlocks();
+
+    if (!blocks.containsKey(tenseKey)) {
+      blocks[tenseKey] = [];
+    }
+
+    // Update or add block
+    final existingIndex = blocks[tenseKey]!.indexWhere(
+      (b) => b.blockNumber == block.blockNumber,
+    );
+    if (existingIndex >= 0) {
+      blocks[tenseKey]![existingIndex] = block;
+    } else {
+      blocks[tenseKey]!.add(block);
+    }
+
+    final jsonMap = blocks.map(
+      (key, value) => MapEntry(key, value.map((e) => e.toJson()).toList()),
+    );
+    await prefs.setString(_completedBlocksKey, json.encode(jsonMap));
+  }
+
+  Future<List<ExerciseBlock>> getBlocksForTenses(String tenseKey) async {
+    final blocks = await getCompletedBlocks();
+    return blocks[tenseKey] ?? [];
+  }
+
+  Future<void> clearBlockProgress() async {
+    final prefs = _prefs ?? await SharedPreferences.getInstance();
+    await prefs.remove(_completedBlocksKey);
   }
 }

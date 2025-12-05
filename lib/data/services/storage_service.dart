@@ -1,11 +1,14 @@
 ﻿import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/exercise.dart';
+import '../models/exercise_stats.dart';
 
 /// Service for local storage using SharedPreferences
 class StorageService {
   static const String _selectedTensesKey = 'selected_tenses';
   static const String _customExercisesKey = 'custom_exercises';
+  static const String _exerciseStatsKey = 'exercise_stats';
+  static const String _exerciseSessionsKey = 'exercise_sessions';
 
   SharedPreferences? _prefs;
 
@@ -39,7 +42,7 @@ class StorageService {
     final prefs = _prefs ?? await SharedPreferences.getInstance();
     final jsonString = prefs.getString(_customExercisesKey);
     if (jsonString == null) return [];
-    
+
     final List<dynamic> jsonList = json.decode(jsonString);
     return jsonList.map((e) => Exercise.fromJson(e)).toList();
   }
@@ -69,5 +72,84 @@ class StorageService {
       exercises[index] = exercise;
       await saveCustomExercises(exercises);
     }
+  }
+
+  // Exercise Statistics
+  Future<ExerciseStats> getExerciseStats() async {
+    final prefs = _prefs ?? await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_exerciseStatsKey);
+    if (jsonString == null) return const ExerciseStats();
+
+    return ExerciseStats.fromJson(json.decode(jsonString));
+  }
+
+  Future<void> saveExerciseStats(ExerciseStats stats) async {
+    final prefs = _prefs ?? await SharedPreferences.getInstance();
+    await prefs.setString(_exerciseStatsKey, json.encode(stats.toJson()));
+  }
+
+  Future<void> updateStatsAfterSession({
+    required int exercisesCompleted,
+    required int correctAnswers,
+    required int currentStreak,
+    required List<String> tenseIds,
+    required Map<String, int> correctByTense,
+    required Map<String, int> totalByTense,
+  }) async {
+    final stats = await getExerciseStats();
+
+    // Update tense-specific stats
+    final newStatsByTense = Map<String, TenseStats>.from(stats.statsByTense);
+    for (final tenseId in tenseIds) {
+      final existing = newStatsByTense[tenseId] ?? const TenseStats();
+      newStatsByTense[tenseId] = existing.copyWith(
+        exercisesCompleted:
+            existing.exercisesCompleted + (totalByTense[tenseId] ?? 0),
+        correctAnswers:
+            existing.correctAnswers + (correctByTense[tenseId] ?? 0),
+      );
+    }
+
+    final updatedStats = stats.copyWith(
+      totalSessions: stats.totalSessions + 1,
+      totalExercisesCompleted:
+          stats.totalExercisesCompleted + exercisesCompleted,
+      totalCorrectAnswers: stats.totalCorrectAnswers + correctAnswers,
+      bestStreak: currentStreak > stats.bestStreak
+          ? currentStreak
+          : stats.bestStreak,
+      statsByTense: newStatsByTense,
+    );
+
+    await saveExerciseStats(updatedStats);
+  }
+
+  // Exercise Sessions (history)
+  Future<List<ExerciseSession>> getExerciseSessions() async {
+    final prefs = _prefs ?? await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_exerciseSessionsKey);
+    if (jsonString == null) return [];
+
+    final List<dynamic> jsonList = json.decode(jsonString);
+    return jsonList.map((e) => ExerciseSession.fromJson(e)).toList();
+  }
+
+  Future<void> saveExerciseSession(ExerciseSession session) async {
+    final prefs = _prefs ?? await SharedPreferences.getInstance();
+    final sessions = await getExerciseSessions();
+    sessions.insert(0, session); // Add at beginning (most recent first)
+
+    // Keep only last 50 sessions
+    final trimmedSessions = sessions.take(50).toList();
+
+    final jsonList = trimmedSessions.map((e) => e.toJson()).toList();
+    await prefs.setString(_exerciseSessionsKey, json.encode(jsonList));
+  }
+
+  // Clear all stats (for testing or reset)
+  Future<void> clearAllStats() async {
+    final prefs = _prefs ?? await SharedPreferences.getInstance();
+    await prefs.remove(_exerciseStatsKey);
+    await prefs.remove(_exerciseSessionsKey);
   }
 }

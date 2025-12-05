@@ -14,16 +14,42 @@ class ExercisesView extends StatefulWidget {
 class _ExercisesViewState extends State<ExercisesView> {
   ExerciseViewModel? _exerciseVM;
   final _answerController = TextEditingController();
+  List<String>? _lastSelectedTenseIds;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final tenseVM = context.read<TenseViewModel>();
-      _exerciseVM = ExerciseViewModel();
-      _exerciseVM!.init(tenseVM.selectedTenseIds);
-      setState(() {});
+      _initExercises();
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Check if tense selection changed
+    final tenseVM = context.watch<TenseViewModel>();
+    if (_lastSelectedTenseIds != null &&
+        !_listEquals(_lastSelectedTenseIds!, tenseVM.selectedTenseIds)) {
+      // Selection changed, reload exercises
+      _initExercises();
+    }
+  }
+
+  void _initExercises() {
+    final tenseVM = context.read<TenseViewModel>();
+    _lastSelectedTenseIds = List.from(tenseVM.selectedTenseIds);
+    _exerciseVM = ExerciseViewModel();
+    _exerciseVM!.init(tenseVM.selectedTenseIds);
+    if (mounted) setState(() {});
+  }
+
+  bool _listEquals(List<String> a, List<String> b) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (!b.contains(a[i])) return false;
+    }
+    return true;
   }
 
   @override
@@ -40,7 +66,14 @@ class _ExercisesViewState extends State<ExercisesView> {
         actions: [
           if (_exerciseVM != null)
             IconButton(
+              icon: const Icon(Icons.bar_chart),
+              tooltip: 'Estadísticas',
+              onPressed: () => _showStatsDialog(context),
+            ),
+          if (_exerciseVM != null)
+            IconButton(
               icon: const Icon(Icons.refresh),
+              tooltip: 'Reiniciar',
               onPressed: () {
                 final tenseVM = context.read<TenseViewModel>();
                 _exerciseVM!.init(tenseVM.selectedTenseIds);
@@ -96,6 +129,63 @@ class _ExercisesViewState extends State<ExercisesView> {
     );
   }
 
+  void _showStatsDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Tus Estadísticas'),
+        content: ListenableBuilder(
+          listenable: _exerciseVM!,
+          builder: (context, _) {
+            final stats = _exerciseVM!.stats;
+            return SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _StatRow(
+                    icon: Icons.fitness_center,
+                    label: 'Sesiones totales',
+                    value: '${stats.totalSessions}',
+                  ),
+                  _StatRow(
+                    icon: Icons.check_circle,
+                    label: 'Ejercicios completados',
+                    value: '${stats.totalExercisesCompleted}',
+                  ),
+                  _StatRow(
+                    icon: Icons.trending_up,
+                    label: 'Precisión global',
+                    value: '${stats.overallAccuracy.toStringAsFixed(1)}%',
+                  ),
+                  _StatRow(
+                    icon: Icons.local_fire_department,
+                    label: 'Mejor racha',
+                    value: '${stats.bestStreak}',
+                  ),
+                  if (stats.totalSessions == 0)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 16),
+                      child: Text(
+                        '¡Completa tu primera sesión para ver estadísticas!',
+                        style: TextStyle(fontStyle: FontStyle.italic),
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cerrar'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildExerciseScreen(BuildContext context) {
     final exercise = _exerciseVM!.currentExercise!;
 
@@ -104,12 +194,38 @@ class _ExercisesViewState extends State<ExercisesView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Progress
-          LinearProgressIndicator(
-            value: _exerciseVM!.progress,
-            backgroundColor: Theme.of(
-              context,
-            ).colorScheme.surfaceContainerHighest,
+          // Progress and streak
+          Row(
+            children: [
+              Expanded(
+                child: LinearProgressIndicator(
+                  value: _exerciseVM!.progress,
+                  backgroundColor: Theme.of(
+                    context,
+                  ).colorScheme.surfaceContainerHighest,
+                ),
+              ),
+              if (_exerciseVM!.currentStreak > 0)
+                Padding(
+                  padding: const EdgeInsets.only(left: 12),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.local_fire_department,
+                        color: Colors.orange,
+                        size: 20,
+                      ),
+                      Text(
+                        '${_exerciseVM!.currentStreak}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.orange,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 8),
           Text(
@@ -267,6 +383,7 @@ class _ExercisesViewState extends State<ExercisesView> {
         (_exerciseVM!.correctAnswers / _exerciseVM!.totalExercises * 100)
             .round();
     final isGood = percentage >= 70;
+    final stats = _exerciseVM!.stats;
 
     return Center(
       child: SingleChildScrollView(
@@ -289,6 +406,8 @@ class _ExercisesViewState extends State<ExercisesView> {
               ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
+
+            // Score
             Text(
               '${_exerciseVM!.correctAnswers} / ${_exerciseVM!.totalExercises}',
               style: Theme.of(context).textTheme.displaySmall?.copyWith(
@@ -307,18 +426,161 @@ class _ExercisesViewState extends State<ExercisesView> {
               isGood ? '¡Excelente trabajo!' : '¡Sigue practicando!',
               style: Theme.of(context).textTheme.bodyLarge,
             ),
+
+            // Session stats
+            const SizedBox(height: 24),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    Text(
+                      'Esta sesión',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _MiniStat(
+                          icon: Icons.local_fire_department,
+                          value: '${_exerciseVM!.bestStreakThisSession}',
+                          label: 'Mejor racha',
+                        ),
+                        _MiniStat(
+                          icon: Icons.percent,
+                          value:
+                              '${_exerciseVM!.accuracyThisSession.toStringAsFixed(0)}%',
+                          label: 'Precisión',
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Overall stats
+            const SizedBox(height: 16),
+            Card(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    Text(
+                      'Tu progreso total',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _MiniStat(
+                          icon: Icons.fitness_center,
+                          value: '${stats.totalSessions}',
+                          label: 'Sesiones',
+                        ),
+                        _MiniStat(
+                          icon: Icons.check_circle,
+                          value: '${stats.totalExercisesCompleted}',
+                          label: 'Ejercicios',
+                        ),
+                        _MiniStat(
+                          icon: Icons.star,
+                          value: '${stats.bestStreak}',
+                          label: 'Récord racha',
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
             const SizedBox(height: 32),
-            ElevatedButton.icon(
-              onPressed: () {
-                final tenseVM = context.read<TenseViewModel>();
-                _exerciseVM!.init(tenseVM.selectedTenseIds);
-              },
-              icon: const Icon(Icons.refresh),
-              label: const Text('Volver a intentar'),
+
+            // Action buttons
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: () {
+                    _exerciseVM!.restart();
+                  },
+                  icon: const Icon(Icons.replay),
+                  label: const Text('Volver a practicar'),
+                ),
+                const SizedBox(width: 12),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    final tenseVM = context.read<TenseViewModel>();
+                    _exerciseVM!.init(tenseVM.selectedTenseIds);
+                  },
+                  icon: const Icon(Icons.shuffle),
+                  label: const Text('Nuevos ejercicios'),
+                ),
+              ],
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _StatRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _StatRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Icon(icon, size: 24),
+          const SizedBox(width: 12),
+          Expanded(child: Text(label)),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+}
+
+class _MiniStat extends StatelessWidget {
+  final IconData icon;
+  final String value;
+  final String label;
+
+  const _MiniStat({
+    required this.icon,
+    required this.value,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Icon(icon, size: 24, color: Theme.of(context).colorScheme.primary),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        Text(label, style: Theme.of(context).textTheme.bodySmall),
+      ],
     );
   }
 }

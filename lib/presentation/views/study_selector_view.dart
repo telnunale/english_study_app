@@ -3,7 +3,14 @@ import 'package:provider/provider.dart';
 import '../../presentation/viewmodels/tense_viewmodel.dart';
 
 class StudySelectorView extends StatelessWidget {
-  const StudySelectorView({super.key});
+  final bool showManagement;
+  final ValueChanged<bool> onToggleManagement;
+
+  const StudySelectorView({
+    super.key,
+    required this.showManagement,
+    required this.onToggleManagement,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -55,15 +62,20 @@ class StudySelectorView extends StatelessWidget {
                       const SizedBox(height: 8),
                       Text(
                         '${vm.selectedTenseIds.length} tiempos seleccionados',
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onPrimaryContainer,
-                        ),
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onPrimaryContainer,
+                            ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         'Los ejercicios mostrarán solo estos tiempos',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onPrimaryContainer.withOpacity(0.7),
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onPrimaryContainer.withOpacity(0.7),
                         ),
                       ),
                     ],
@@ -71,7 +83,30 @@ class StudySelectorView extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              ...vm.groups.map((group) => _buildGroupSection(context, vm, group)),
+              ...vm.groups.map(
+                (group) => _buildGroupSection(context, vm, group),
+              ),
+
+              // Switch para activar/desactivar Gestión
+              const SizedBox(height: 24),
+              const Divider(),
+              SwitchListTile(
+                value: showManagement,
+                onChanged: onToggleManagement,
+                title: const Text('Modo Gestión'),
+                subtitle: Text(
+                  showManagement
+                      ? 'Pestaña de gestión visible'
+                      : 'Pestaña de gestión oculta',
+                ),
+                secondary: Icon(
+                  showManagement ? Icons.settings : Icons.settings_outlined,
+                  color: showManagement
+                      ? Theme.of(context).colorScheme.primary
+                      : null,
+                ),
+              ),
+              const SizedBox(height: 16),
             ],
           );
         },
@@ -79,7 +114,11 @@ class StudySelectorView extends StatelessWidget {
     );
   }
 
-  Widget _buildGroupSection(BuildContext context, TenseViewModel vm, String group) {
+  Widget _buildGroupSection(
+    BuildContext context,
+    TenseViewModel vm,
+    String group,
+  ) {
     final tenses = vm.getTensesByGroup(group);
     final selectedCount = tenses.where((t) => vm.isTenseSelected(t.id)).length;
 
@@ -92,9 +131,9 @@ class StudySelectorView extends StatelessWidget {
             children: [
               Text(
                 group,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(width: 8),
               Container(
@@ -111,22 +150,24 @@ class StudySelectorView extends StatelessWidget {
             ],
           ),
         ),
-        ...tenses.map((tense) => Card(
-          child: CheckboxListTile(
-            value: vm.isTenseSelected(tense.id),
-            onChanged: (_) => vm.toggleTense(tense.id),
-            title: Text(tense.spanishName),
-            subtitle: Text(tense.name),
-            secondary: Icon(
-              vm.isTenseSelected(tense.id) 
-                  ? Icons.check_circle 
-                  : Icons.circle_outlined,
-              color: vm.isTenseSelected(tense.id)
-                  ? Theme.of(context).colorScheme.primary
-                  : null,
+        ...tenses.map(
+          (tense) => Card(
+            child: CheckboxListTile(
+              value: vm.isTenseSelected(tense.id),
+              onChanged: (_) => vm.toggleTense(tense.id),
+              title: Text(tense.spanishName),
+              subtitle: Text(tense.name),
+              secondary: Icon(
+                vm.isTenseSelected(tense.id)
+                    ? Icons.check_circle
+                    : Icons.circle_outlined,
+                color: vm.isTenseSelected(tense.id)
+                    ? Theme.of(context).colorScheme.primary
+                    : null,
+              ),
             ),
           ),
-        )),
+        ),
         const SizedBox(height: 8),
       ],
     );

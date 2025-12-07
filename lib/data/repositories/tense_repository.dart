@@ -1,8 +1,37 @@
 ﻿import '../models/verb_tense.dart';
 
+import '../services/storage_service.dart';
+
 /// Repository containing all 14 verb tenses with verified grammatical content
 class TenseRepository {
-  static const List<VerbTense> allTenses = [
+  static final TenseRepository _instance = TenseRepository._internal();
+  factory TenseRepository() => _instance;
+  TenseRepository._internal();
+
+  final StorageService _storage = StorageService();
+  List<VerbTense> _customTenses = [];
+
+  Future<void> init() async {
+    await _storage.init();
+    _customTenses = await _storage.getModifiedTenses();
+  }
+
+  // Helper helper to merge defaults with overrides
+  VerbTense _getEffectiveTense(VerbTense defaultTense) {
+    try {
+      return _customTenses.firstWhere((t) => t.id == defaultTense.id);
+    } catch (_) {
+      return defaultTense;
+    }
+  }
+
+  Future<void> updateTense(VerbTense tense) async {
+    await _storage.init();
+    await _storage.saveVerbTense(tense);
+    _customTenses = await _storage.getModifiedTenses();
+  }
+
+  static const List<VerbTense> _defaultTenses = [
     // PRESENT GROUP
     VerbTense(
       id: 'present_simple',
@@ -19,9 +48,18 @@ class TenseRepository {
       negativeStructure: 'Subject + do/does + not + verb',
       questionStructure: 'Do/Does + subject + verb?',
       examples: [
-        TenseExample(english: 'I work in a bank.', spanish: 'Trabajo en un banco.'),
-        TenseExample(english: 'She plays tennis on Sundays.', spanish: 'Ella juega tenis los domingos.'),
-        TenseExample(english: 'Do you speak English?', spanish: '¿Hablas inglés?'),
+        TenseExample(
+          english: 'I work in a bank.',
+          spanish: 'Trabajo en un banco.',
+        ),
+        TenseExample(
+          english: 'She plays tennis on Sundays.',
+          spanish: 'Ella juega tenis los domingos.',
+        ),
+        TenseExample(
+          english: 'Do you speak English?',
+          spanish: '¿Hablas inglés?',
+        ),
       ],
     ),
     VerbTense(
@@ -39,9 +77,18 @@ class TenseRepository {
       negativeStructure: 'Subject + am/is/are + not + verb-ing',
       questionStructure: 'Am/Is/Are + subject + verb-ing?',
       examples: [
-        TenseExample(english: 'I am studying English.', spanish: 'Estoy estudiando inglés.'),
-        TenseExample(english: 'They are watching TV.', spanish: 'Ellos están viendo la tele.'),
-        TenseExample(english: 'Is she working?', spanish: '¿Está ella trabajando?'),
+        TenseExample(
+          english: 'I am studying English.',
+          spanish: 'Estoy estudiando inglés.',
+        ),
+        TenseExample(
+          english: 'They are watching TV.',
+          spanish: 'Ellos están viendo la tele.',
+        ),
+        TenseExample(
+          english: 'Is she working?',
+          spanish: '¿Está ella trabajando?',
+        ),
       ],
     ),
     VerbTense(
@@ -59,9 +106,18 @@ class TenseRepository {
       negativeStructure: 'Subject + have/has + not + past participle',
       questionStructure: 'Have/Has + subject + past participle?',
       examples: [
-        TenseExample(english: 'I have visited London twice.', spanish: 'He visitado Londres dos veces.'),
-        TenseExample(english: 'She has just arrived.', spanish: 'Ella acaba de llegar.'),
-        TenseExample(english: 'Have you ever eaten sushi?', spanish: '¿Has comido alguna vez sushi?'),
+        TenseExample(
+          english: 'I have visited London twice.',
+          spanish: 'He visitado Londres dos veces.',
+        ),
+        TenseExample(
+          english: 'She has just arrived.',
+          spanish: 'Ella acaba de llegar.',
+        ),
+        TenseExample(
+          english: 'Have you ever eaten sushi?',
+          spanish: '¿Has comido alguna vez sushi?',
+        ),
       ],
     ),
     VerbTense(
@@ -78,9 +134,18 @@ class TenseRepository {
       negativeStructure: 'Subject + have/has + not + been + verb-ing',
       questionStructure: 'Have/Has + subject + been + verb-ing?',
       examples: [
-        TenseExample(english: 'I have been learning Spanish for 2 years.', spanish: 'He estado aprendiendo español durante 2 años.'),
-        TenseExample(english: 'It has been raining all day.', spanish: 'Ha estado lloviendo todo el día.'),
-        TenseExample(english: 'How long have you been working here?', spanish: '¿Cuánto tiempo llevas trabajando aquí?'),
+        TenseExample(
+          english: 'I have been learning Spanish for 2 years.',
+          spanish: 'He estado aprendiendo español durante 2 años.',
+        ),
+        TenseExample(
+          english: 'It has been raining all day.',
+          spanish: 'Ha estado lloviendo todo el día.',
+        ),
+        TenseExample(
+          english: 'How long have you been working here?',
+          spanish: '¿Cuánto tiempo llevas trabajando aquí?',
+        ),
       ],
     ),
 
@@ -96,13 +161,20 @@ class TenseRepository {
 • Serie de acciones pasadas: I woke up, had breakfast and left
 • Estados pasados: She was happy
 • Con ago, yesterday, last week, in 2020''',
-      affirmativeStructure: 'Subject + verb in past (regular: -ed / irregular: 2nd column)',
+      affirmativeStructure:
+          'Subject + verb in past (regular: -ed / irregular: 2nd column)',
       negativeStructure: 'Subject + did + not + verb',
       questionStructure: 'Did + subject + verb?',
       examples: [
         TenseExample(english: 'I worked yesterday.', spanish: 'Trabajé ayer.'),
-        TenseExample(english: 'She went to the cinema.', spanish: 'Ella fue al cine.'),
-        TenseExample(english: 'Did you see the match?', spanish: '¿Viste el partido?'),
+        TenseExample(
+          english: 'She went to the cinema.',
+          spanish: 'Ella fue al cine.',
+        ),
+        TenseExample(
+          english: 'Did you see the match?',
+          spanish: '¿Viste el partido?',
+        ),
       ],
     ),
     VerbTense(
@@ -120,9 +192,18 @@ class TenseRepository {
       negativeStructure: 'Subject + was/were + not + verb-ing',
       questionStructure: 'Was/Were + subject + verb-ing?',
       examples: [
-        TenseExample(english: 'I was studying at 10pm.', spanish: 'Estaba estudiando a las 10pm.'),
-        TenseExample(english: 'They were playing when it started raining.', spanish: 'Ellos estaban jugando cuando empezó a llover.'),
-        TenseExample(english: 'What were you doing?', spanish: '¿Qué estabas haciendo?'),
+        TenseExample(
+          english: 'I was studying at 10pm.',
+          spanish: 'Estaba estudiando a las 10pm.',
+        ),
+        TenseExample(
+          english: 'They were playing when it started raining.',
+          spanish: 'Ellos estaban jugando cuando empezó a llover.',
+        ),
+        TenseExample(
+          english: 'What were you doing?',
+          spanish: '¿Qué estabas haciendo?',
+        ),
       ],
     ),
     VerbTense(
@@ -139,9 +220,18 @@ class TenseRepository {
       negativeStructure: 'Subject + had + not + past participle',
       questionStructure: 'Had + subject + past participle?',
       examples: [
-        TenseExample(english: 'I had already eaten when she arrived.', spanish: 'Ya había comido cuando ella llegó.'),
-        TenseExample(english: 'He had never seen the sea before.', spanish: 'Él nunca había visto el mar antes.'),
-        TenseExample(english: 'Had you finished the report?', spanish: '¿Habías terminado el informe?'),
+        TenseExample(
+          english: 'I had already eaten when she arrived.',
+          spanish: 'Ya había comido cuando ella llegó.',
+        ),
+        TenseExample(
+          english: 'He had never seen the sea before.',
+          spanish: 'Él nunca había visto el mar antes.',
+        ),
+        TenseExample(
+          english: 'Had you finished the report?',
+          spanish: '¿Habías terminado el informe?',
+        ),
       ],
     ),
     VerbTense(
@@ -157,9 +247,18 @@ class TenseRepository {
       negativeStructure: 'Subject + had + not + been + verb-ing',
       questionStructure: 'Had + subject + been + verb-ing?',
       examples: [
-        TenseExample(english: 'I had been studying for 3 hours.', spanish: 'Había estado estudiando durante 3 horas.'),
-        TenseExample(english: 'They had been living there since 2010.', spanish: 'Habían estado viviendo allí desde 2010.'),
-        TenseExample(english: 'How long had you been waiting?', spanish: '¿Cuánto tiempo habías estado esperando?'),
+        TenseExample(
+          english: 'I had been studying for 3 hours.',
+          spanish: 'Había estado estudiando durante 3 horas.',
+        ),
+        TenseExample(
+          english: 'They had been living there since 2010.',
+          spanish: 'Habían estado viviendo allí desde 2010.',
+        ),
+        TenseExample(
+          english: 'How long had you been waiting?',
+          spanish: '¿Cuánto tiempo habías estado esperando?',
+        ),
       ],
     ),
 
@@ -179,8 +278,14 @@ class TenseRepository {
       negativeStructure: 'Subject + will + not + verb',
       questionStructure: 'Will + subject + verb?',
       examples: [
-        TenseExample(english: 'I will study tomorrow.', spanish: 'Estudiaré mañana.'),
-        TenseExample(english: 'She won\'t come to the party.', spanish: 'Ella no vendrá a la fiesta.'),
+        TenseExample(
+          english: 'I will study tomorrow.',
+          spanish: 'Estudiaré mañana.',
+        ),
+        TenseExample(
+          english: 'She won\'t come to the party.',
+          spanish: 'Ella no vendrá a la fiesta.',
+        ),
         TenseExample(english: 'Will you help me?', spanish: '¿Me ayudarás?'),
       ],
     ),
@@ -198,9 +303,18 @@ class TenseRepository {
       negativeStructure: 'Subject + am/is/are + not + going to + verb',
       questionStructure: 'Am/Is/Are + subject + going to + verb?',
       examples: [
-        TenseExample(english: 'I am going to travel next month.', spanish: 'Voy a viajar el próximo mes.'),
-        TenseExample(english: 'He is going to buy a car.', spanish: 'Él va a comprar un coche.'),
-        TenseExample(english: 'Are you going to come?', spanish: '¿Vas a venir?'),
+        TenseExample(
+          english: 'I am going to travel next month.',
+          spanish: 'Voy a viajar el próximo mes.',
+        ),
+        TenseExample(
+          english: 'He is going to buy a car.',
+          spanish: 'Él va a comprar un coche.',
+        ),
+        TenseExample(
+          english: 'Are you going to come?',
+          spanish: '¿Vas a venir?',
+        ),
       ],
     ),
     VerbTense(
@@ -217,9 +331,18 @@ class TenseRepository {
       negativeStructure: 'Subject + will + not + be + verb-ing',
       questionStructure: 'Will + subject + be + verb-ing?',
       examples: [
-        TenseExample(english: 'I will be working at 9am.', spanish: 'Estaré trabajando a las 9am.'),
-        TenseExample(english: 'This time tomorrow we will be flying to Paris.', spanish: 'Mañana a esta hora estaremos volando a París.'),
-        TenseExample(english: 'Will you be needing the car?', spanish: '¿Necesitarás el coche?'),
+        TenseExample(
+          english: 'I will be working at 9am.',
+          spanish: 'Estaré trabajando a las 9am.',
+        ),
+        TenseExample(
+          english: 'This time tomorrow we will be flying to Paris.',
+          spanish: 'Mañana a esta hora estaremos volando a París.',
+        ),
+        TenseExample(
+          english: 'Will you be needing the car?',
+          spanish: '¿Necesitarás el coche?',
+        ),
       ],
     ),
     VerbTense(
@@ -235,9 +358,18 @@ class TenseRepository {
       negativeStructure: 'Subject + will + not + have + past participle',
       questionStructure: 'Will + subject + have + past participle?',
       examples: [
-        TenseExample(english: 'By next year, I will have graduated.', spanish: 'Para el próximo año, me habré graduado.'),
-        TenseExample(english: 'She will have finished by 5pm.', spanish: 'Ella habrá terminado para las 5pm.'),
-        TenseExample(english: 'Will you have completed it by Monday?', spanish: '¿Lo habrás completado para el lunes?'),
+        TenseExample(
+          english: 'By next year, I will have graduated.',
+          spanish: 'Para el próximo año, me habré graduado.',
+        ),
+        TenseExample(
+          english: 'She will have finished by 5pm.',
+          spanish: 'Ella habrá terminado para las 5pm.',
+        ),
+        TenseExample(
+          english: 'Will you have completed it by Monday?',
+          spanish: '¿Lo habrás completado para el lunes?',
+        ),
       ],
     ),
 
@@ -257,9 +389,18 @@ class TenseRepository {
       negativeStructure: 'Subject + would + not + verb',
       questionStructure: 'Would + subject + verb?',
       examples: [
-        TenseExample(english: 'I would travel if I had money.', spanish: 'Viajaría si tuviera dinero.'),
-        TenseExample(english: 'She would help you.', spanish: 'Ella te ayudaría.'),
-        TenseExample(english: 'Would you like some coffee?', spanish: '¿Te gustaría un café?'),
+        TenseExample(
+          english: 'I would travel if I had money.',
+          spanish: 'Viajaría si tuviera dinero.',
+        ),
+        TenseExample(
+          english: 'She would help you.',
+          spanish: 'Ella te ayudaría.',
+        ),
+        TenseExample(
+          english: 'Would you like some coffee?',
+          spanish: '¿Te gustaría un café?',
+        ),
       ],
     ),
     VerbTense(
@@ -276,21 +417,32 @@ class TenseRepository {
       negativeStructure: 'Subject + would + not + have + past participle',
       questionStructure: 'Would + subject + have + past participle?',
       examples: [
-        TenseExample(english: 'I would have called you.', spanish: 'Te habría llamado.'),
-        TenseExample(english: 'She would have come if you had invited her.', spanish: 'Ella habría venido si la hubieras invitado.'),
-        TenseExample(english: 'Would you have accepted?', spanish: '¿Habrías aceptado?'),
+        TenseExample(
+          english: 'I would have called you.',
+          spanish: 'Te habría llamado.',
+        ),
+        TenseExample(
+          english: 'She would have come if you had invited her.',
+          spanish: 'Ella habría venido si la hubieras invitado.',
+        ),
+        TenseExample(
+          english: 'Would you have accepted?',
+          spanish: '¿Habrías aceptado?',
+        ),
       ],
     ),
   ];
 
-  List<VerbTense> getAllTenses() => allTenses;
+  List<VerbTense> getAllTenses() {
+    return _defaultTenses.map((t) => _getEffectiveTense(t)).toList();
+  }
 
   List<VerbTense> getTensesByGroup(String group) =>
-      allTenses.where((t) => t.group == group).toList();
+      getAllTenses().where((t) => t.group == group).toList();
 
   VerbTense? getTenseById(String id) {
     try {
-      return allTenses.firstWhere((t) => t.id == id);
+      return getAllTenses().firstWhere((t) => t.id == id);
     } catch (_) {
       return null;
     }

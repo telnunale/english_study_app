@@ -20,15 +20,13 @@ class _TranslatorViewState extends State<TranslatorView> {
   bool _isLoading = false;
   Timer? _debounceTimer;
 
-  // Lingva Translate mirrors (Google Translate frontend)
-  final List<String> _lingvaServers = [
-    'https://lingva.ml',
-    'https://translate.plausibility.cloud',
-    'https://lingva.garuber.eu',
-  ];
+  // MyMemory Translation API (free, stable, no API key required)
+  static const String _myMemoryApiUrl =
+      'https://api.mymemory.translated.net/get';
 
   String get _fromLang => _isEnglishToSpanish ? 'en' : 'es';
   String get _toLang => _isEnglishToSpanish ? 'es' : 'en';
+  String get _langPair => '$_fromLang|$_toLang';
   String get _fromLabel => _isEnglishToSpanish ? 'Inglés' : 'Español';
   String get _toLabel => _isEnglishToSpanish ? 'Español' : 'Inglés';
 
@@ -72,21 +70,31 @@ class _TranslatorViewState extends State<TranslatorView> {
       return;
     }
 
-    // Try each server until one works
-    for (final server in _lingvaServers) {
-      try {
-        final encodedText = Uri.encodeComponent(text.trim());
-        final url = '$server/api/v1/$_fromLang/$_toLang/$encodedText';
+    try {
+      final encodedText = Uri.encodeComponent(text.trim());
+      final url = '$_myMemoryApiUrl?q=$encodedText&langpair=$_langPair';
 
-        final response = await http
-            .get(Uri.parse(url), headers: {'Accept': 'application/json'})
-            .timeout(const Duration(seconds: 6));
+      final response = await http
+          .get(Uri.parse(url), headers: {'Accept': 'application/json'})
+          .timeout(const Duration(seconds: 10));
 
-        if (!mounted) return;
+      if (!mounted) return;
 
-        if (response.statusCode == 200) {
-          final data = json.decode(response.body);
-          final translation = data['translation'] as String?;
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final responseData = data['responseData'];
+
+        if (responseData != null) {
+          final translation = responseData['translatedText'] as String?;
+
+          // Check for API quota exceeded
+          if (translation != null && translation.contains('MYMEMORY WARNING')) {
+            setState(() {
+              _error = 'Límite de traducciones alcanzado. Intenta más tarde.';
+              _isLoading = false;
+            });
+            return;
+          }
 
           if (translation != null && translation.isNotEmpty) {
             setState(() {
@@ -94,21 +102,52 @@ class _TranslatorViewState extends State<TranslatorView> {
               _error = null;
               _isLoading = false;
             });
-            return; // Success, exit the loop
+            return;
           }
         }
-      } catch (e) {
-        // Try next server
-        continue;
-      }
-    }
 
-    // If all servers failed
-    if (mounted) {
-      setState(() {
-        _error = 'Sin conexión a internet';
-        _isLoading = false;
-      });
+        // API responded but no translation
+        setState(() {
+          _error = 'No se pudo traducir el texto';
+          _isLoading = false;
+        });
+      } else if (response.statusCode == 429) {
+        setState(() {
+          _error = 'Demasiadas solicitudes. Espera un momento.';
+          _isLoading = false;
+        });
+      } else if (response.statusCode >= 500) {
+        setState(() {
+          _error = 'Servicio de traducción no disponible';
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _error = 'Error al conectar con el traductor';
+          _isLoading = false;
+        });
+      }
+    } on http.ClientException {
+      if (mounted) {
+        setState(() {
+          _error = 'Sin conexión a internet';
+          _isLoading = false;
+        });
+      }
+    } on TimeoutException {
+      if (mounted) {
+        setState(() {
+          _error = 'La conexión tardó demasiado. Verifica tu internet.';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = 'Error inesperado. Intenta de nuevo.';
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -292,7 +331,7 @@ class _TranslatorViewState extends State<TranslatorView> {
                 Icon(Icons.auto_awesome, size: 16, color: colorScheme.outline),
                 const SizedBox(width: 8),
                 Text(
-                  'Traducción automática (Google Translate)',
+                  'Traducción automática (MyMemory)',
                   style: TextStyle(fontSize: 12, color: colorScheme.outline),
                 ),
               ],

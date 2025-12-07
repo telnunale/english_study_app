@@ -3,9 +3,12 @@ import '../../data/models/exercise.dart';
 import '../../data/models/verb_tense.dart';
 import '../../data/services/storage_service.dart';
 import '../../data/repositories/tense_repository.dart';
+import 'tense_edit_view.dart';
 
 class ManagementView extends StatefulWidget {
-  const ManagementView({super.key});
+  final VoidCallback? onTranslatorToggled;
+
+  const ManagementView({super.key, this.onTranslatorToggled});
 
   @override
   State<ManagementView> createState() => _ManagementViewState();
@@ -18,6 +21,7 @@ class _ManagementViewState extends State<ManagementView> {
   List<Exercise> _customExercises = [];
   List<VerbTense> _allTenses = [];
   bool _isLoading = true;
+  bool _translatorEnabled = true;
 
   @override
   void initState() {
@@ -28,12 +32,22 @@ class _ManagementViewState extends State<ManagementView> {
   Future<void> _loadData() async {
     await _storage.init();
     _customExercises = await _storage.getCustomExercises();
+    await _tenseRepo.init();
     _allTenses = _tenseRepo.getAllTenses();
+    _translatorEnabled = await _storage.getTranslatorEnabled();
     setState(() => _isLoading = false);
+  }
+
+  Future<void> _toggleTranslator(bool value) async {
+    await _storage.setTranslatorEnabled(value);
+    setState(() => _translatorEnabled = value);
+    widget.onTranslatorToggled?.call();
   }
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Gestión')),
       body: _isLoading
@@ -41,6 +55,45 @@ class _ManagementViewState extends State<ManagementView> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                // Settings Section
+                Text(
+                  'Configuración',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                // Translator Toggle Card
+                Card(
+                  child: SwitchListTile(
+                    secondary: CircleAvatar(
+                      backgroundColor: _translatorEnabled
+                          ? colorScheme.primaryContainer
+                          : colorScheme.surfaceContainerHighest,
+                      child: Icon(
+                        Icons.translate,
+                        color: _translatorEnabled
+                            ? colorScheme.primary
+                            : colorScheme.outline,
+                      ),
+                    ),
+                    title: const Text('Traductor'),
+                    subtitle: Text(
+                      _translatorEnabled
+                          ? 'Disponible en la barra de navegación'
+                          : 'Oculto de la barra de navegación',
+                      style: TextStyle(
+                        color: colorScheme.outline,
+                        fontSize: 12,
+                      ),
+                    ),
+                    value: _translatorEnabled,
+                    onChanged: _toggleTranslator,
+                  ),
+                ),
+                const SizedBox(height: 24),
+
                 // Add Exercise Card
                 Card(
                   child: ListTile(
@@ -103,6 +156,43 @@ class _ManagementViewState extends State<ManagementView> {
                       ),
                     ),
                   ),
+
+                const SizedBox(height: 24),
+
+                // Theory Management Section
+                Text(
+                  'Gestionar Teoría',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Card(
+                  child: ExpansionTile(
+                    leading: const Icon(Icons.menu_book),
+                    title: const Text('Tiempos Verbales'),
+                    subtitle: Text('${_allTenses.length} tiempos disponibles'),
+                    children: _allTenses.map((tense) {
+                      return ListTile(
+                        title: Text(tense.spanishName),
+                        subtitle: Text(tense.name),
+                        trailing: const Icon(Icons.edit, size: 20),
+                        onTap: () async {
+                          final result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => TenseEditView(tense: tense),
+                            ),
+                          );
+                          if (result == true) {
+                            // Reload data to reflect changes
+                            _loadData();
+                          }
+                        },
+                      );
+                    }).toList(),
+                  ),
+                ),
               ],
             ),
     );

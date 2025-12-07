@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/exercise.dart';
 import '../models/exercise_stats.dart';
 import '../models/exercise_block.dart';
+import '../models/verb_tense.dart';
 
 /// Service for local storage using SharedPreferences
 class StorageService {
@@ -11,6 +12,8 @@ class StorageService {
   static const String _exerciseStatsKey = 'exercise_stats';
   static const String _exerciseSessionsKey = 'exercise_sessions';
   static const String _completedBlocksKey = 'completed_blocks';
+  static const String _translatorEnabledKey = 'translator_enabled';
+  static const String _modifiedTensesKey = 'modified_tenses';
 
   SharedPreferences? _prefs;
 
@@ -202,5 +205,43 @@ class StorageService {
   Future<void> clearBlockProgress() async {
     final prefs = _prefs ?? await SharedPreferences.getInstance();
     await prefs.remove(_completedBlocksKey);
+  }
+
+  // Translator Settings
+  Future<bool> getTranslatorEnabled() async {
+    final prefs = _prefs ?? await SharedPreferences.getInstance();
+    return prefs.getBool(_translatorEnabledKey) ?? true; // Enabled by default
+  }
+
+  Future<void> setTranslatorEnabled(bool enabled) async {
+    final prefs = _prefs ?? await SharedPreferences.getInstance();
+    await prefs.setBool(_translatorEnabledKey, enabled);
+  }
+
+  // Modified Tenses (Theory)
+  Future<List<VerbTense>> getModifiedTenses() async {
+    final prefs = _prefs ?? await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_modifiedTensesKey);
+    if (jsonString == null) return [];
+
+    final List<dynamic> jsonList = json.decode(jsonString);
+    return jsonList.map((e) => VerbTense.fromJson(e)).toList();
+  }
+
+  Future<void> saveModifiedTenses(List<VerbTense> tenses) async {
+    final prefs = _prefs ?? await SharedPreferences.getInstance();
+    final jsonList = tenses.map((e) => e.toJson()).toList();
+    await prefs.setString(_modifiedTensesKey, json.encode(jsonList));
+  }
+
+  Future<void> saveVerbTense(VerbTense tense) async {
+    final tenses = await getModifiedTenses();
+    final index = tenses.indexWhere((t) => t.id == tense.id);
+    if (index >= 0) {
+      tenses[index] = tense;
+    } else {
+      tenses.add(tense);
+    }
+    await saveModifiedTenses(tenses);
   }
 }
